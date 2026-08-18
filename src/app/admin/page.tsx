@@ -1,13 +1,42 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { products } from '@/data/products';
-import { Shield, Smartphone, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Shield, Smartphone } from 'lucide-react';
+
+type Product = {
+  id: number;
+  name: string;
+  brand: string;
+  condition: string;
+  storage: string;
+  price: number;
+  stock: number;
+  featured: boolean;
+  badge: string | null;
+};
+
+function formatBRL(cents: number) {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [error, setError] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    setLoading(true);
+    fetch('/api/products?limit=100')
+      .then((r) => r.json())
+      .then((data) => {
+        setProducts(data.items || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [authenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +54,7 @@ export default function AdminPage() {
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-10 max-w-md w-full text-center shadow-2xl">
           <Shield className="mx-auto text-orange-500 mb-6" size={48} />
           <h1 className="text-3xl font-bold text-white mb-2">Painel da Loja</h1>
-          <p className="text-gray-400 mb-8">Área restrita. Informe a senha.</p>
+          <p className="text-gray-400 mb-8">Area restrita. Informe a senha.</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
@@ -42,7 +71,7 @@ export default function AdminPage() {
             </button>
           </form>
           {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
-          <a href="/" className="text-gray-500 text-sm mt-6 inline-block hover:text-white transition-colors">← Voltar para a loja</a>
+          <a href="/" className="text-gray-500 text-sm mt-6 inline-block hover:text-white transition-colors">Voltar para a loja</a>
         </div>
       </div>
     );
@@ -65,40 +94,66 @@ export default function AdminPage() {
 
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="bg-white rounded-3xl shadow-xl p-6 overflow-x-auto">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Produtos Cadastrados ({products.length})</h2>
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-900 text-white">
-              <tr>
-                <th className="px-4 py-3 rounded-tl-xl">Nome</th>
-                <th className="px-4 py-3">Marca</th>
-                <th className="px-4 py-3">Condição</th>
-                <th className="px-4 py-3">Preço</th>
-                <th className="px-4 py-3 rounded-tr-xl">Estoque</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b hover:bg-orange-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                  <td className="px-4 py-3 text-gray-600 capitalize">{p.brand}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.condition === 'novo' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-600'}`}>
-                      {p.condition}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-orange-600">R$ {p.price.toLocaleString('pt-BR')}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.storage}</td>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            Produtos Cadastrados ({products.length})
+          </h2>
+          {loading ? (
+            <p className="text-gray-500 text-center py-8">Carregando produtos...</p>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-900 text-white">
+                <tr>
+                  <th className="px-4 py-3 rounded-tl-xl">Nome</th>
+                  <th className="px-4 py-3">Marca</th>
+                  <th className="px-4 py-3">Condicao</th>
+                  <th className="px-4 py-3">Preco</th>
+                  <th className="px-4 py-3 rounded-tr-xl">Estoque</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.id} className="border-b hover:bg-orange-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {p.name}
+                      {p.badge && (
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600">
+                          {p.badge}
+                        </span>
+                      )}
+                      {p.featured && (
+                        <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
+                          Destaque
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{p.brand}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        p.condition === 'Novo' ? 'bg-green-100 text-green-700' :
+                        p.condition === 'Seminovo' ? 'bg-orange-100 text-orange-600' :
+                        'bg-gray-200 text-gray-700'
+                      }`}>
+                        {p.condition}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-orange-600">
+                      {formatBRL(p.price)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {p.storage} - {p.stock} un.
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="mt-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-8 text-white shadow-2xl">
-          <h3 className="text-2xl font-bold mb-2">Como editar produtos?</h3>
-          <p className="text-orange-100 mb-4">Abra o arquivo no seu computador:</p>
-          <code className="bg-black/30 px-4 py-2 rounded-lg text-sm block mb-4">Documentos/phonesmart/src/data/products.ts</code>
-          <p className="text-sm text-orange-200">Edite os preços, depois salve, comite no GitHub Desktop e dê Push. O site atualiza sozinho!</p>
+          <h3 className="text-2xl font-bold mb-2">Quer editar produtos ou precos?</h3>
+          <p className="text-orange-100">
+            Me chama aqui no chat que eu mudo pra voce em segundos!
+          </p>
         </div>
       </main>
     </div>
